@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>أسعار سمارتي</title>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f6f8;margin:0;display:flex;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:28px;max-width:420px;width:100%;text-align:center}
+.store{color:#666;font-size:15px;margin-bottom:4px}
+.name{font-size:22px;font-weight:700;margin:8px 0}
+.code{color:#999;font-size:13px;direction:ltr}
+.price{font-size:44px;font-weight:800;color:#0a7d3b;margin:18px 0 2px}
+.unit{font-size:18px;color:#0a7d3b}
+.meta{margin-top:18px;font-size:13px;color:#888;border-top:1px solid #eee;padding-top:12px;line-height:2}
+.err{color:#c0392b;font-size:20px;margin:30px 0}
+input{font-size:18px;padding:10px;border:1px solid #ccc;border-radius:10px;width:70%}
+button{font-size:18px;padding:10px 18px;border:0;border-radius:10px;background:#0a7d3b;color:#fff;cursor:pointer}
+.spin{color:#999;margin:30px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="store">🏪 <span id="store">...</span></div>
+  <div id="body" class="spin">جارِ التحميل…</div>
+</div>
+<script>
+const SB  = "https://lzzhrnwhfydfrnktvaei.supabase.co";
+const KEY = "sb_publishable_fwT1tfYwEXlo-XrRqlr6Jg_CZXRboMd";
+const H   = { apikey: KEY, Authorization: "Bearer " + KEY };
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const fmt = n => (n == null) ? "-" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+const fmtT = t => t ? new Date(t).toLocaleString("sv-SE").replace("T", " ").slice(0, 16) : "-";
+
+async function api(path) {
+  const r = await fetch(SB + "/rest/v1/" + path, { headers: H });
+  if (!r.ok) throw new Error("api " + r.status);
+  return r.json();
+}
+
+async function main() {
+  const p = new URLSearchParams(location.search);
+  let settings = [];
+  try {
+    settings = await api("qr_settings?key=in.(usd_rate,store_name)&select=key,value,updated_at");
+  } catch (e) {}
+  const map = {};
+  for (const s of settings) map[s.key] = s;
+  const store = map.store_name?.value?.name || "سمارتي";
+  document.getElementById("store").textContent = store;
+  document.title = "أسعار " + store;
+  const rate = map.usd_rate?.value?.value;
+  const rateSrc = map.usd_rate?.value?.source || "";
+  const rateTime = fmtT(map.usd_rate?.updated_at);
+  const body = document.getElementById("body");
+
+  const code = (p.get("c") || "").trim();
+  if (code) {
+    try {
+      const rows = await api("qr_prices?code=eq." + encodeURIComponent(code) + "&select=code,name,usd_price,updated_at");
+      const it = rows[0];
+      if (!it) {
+        body.className = "";
+        body.innerHTML = `<div class="err">المادة غير موجودة<br><span class="code">${esc(code)}</span></div>`;
+        return;
+      }
+      const priceHtml = rate
+        ? `<div class="price">${fmt(it.usd_price * rate)} <span class="unit">ل.س</span></div>`
+        : `<div class="err">سعر الصرف غير متوفر حالياً</div>`;
+      body.className = "";
+      body.innerHTML = `
+        <div class="name">${esc(it.name)}</div>
+        <div class="code">${esc(it.code)}</div>
+        ${priceHtml}
+        <div class="meta">السعر بالدولار: ${fmt(it.usd_price)} $<br>
+        سعر الصرف: ${fmt(rate)} (${esc(rateSrc)})<br>
+        تحديث السعر: ${fmtT(it.updated_at)} · تحديث الصرف: ${rateTime}</div>`;
+      document.title = "سعر " + it.code;
+    } catch (e) {
+      body.className = "";
+      body.innerHTML = `<div class="err">تعذر الاتصال، حاول مجدداً</div>`;
+    }
+    return;
+  }
+
+  // الصفحة الرئيسية: بحث
+  const q = (p.get("q") || "").trim();
+  let html = `<form method="get"><input name="q" placeholder="ابحث برمز أو اسم المادة" value="${esc(q)}"> <button>بحث</button></form>`;
+  if (q) {
+    try {
+      const like = encodeURIComponent("*" + q + "*");
+      const rows = await api("qr_prices?or=(code.ilike." + like + ",name.ilike." + like + ")&select=code,name,usd_price&limit=50");
+      if (rows.length) {
+        html += `<div style="text-align:right;margin-top:16px">`;
+        for (const it of rows) {
+          const syp = rate ? `<b style="color:#0a7d3b">${fmt(it.usd_price * rate)} ل.س</b>` : "";
+          html += `<div style="border-bottom:1px solid #eee;padding:8px 0">
+            <a href="?c=${encodeURIComponent(it.code)}" style="text-decoration:none;color:#333">
+            <b>${esc(it.name)}</b> <span class="code">${esc(it.code)}</span></a><br>${syp}</div>`;
+        }
+        html += `</div>`;
+      } else {
+        html += `<div class="err">لا نتائج</div>`;
+      }
+    } catch (e) {
+      html += `<div class="err">تعذر الاتصال</div>`;
+    }
+  }
+  html += `<div class="meta">سعر الدولار: ${fmt(rate)} (${esc(rateSrc)}) · ${rateTime}</div>`;
+  body.className = "";
+  body.innerHTML = html;
+}
+main();
+</script>
+</body>
+</html>
