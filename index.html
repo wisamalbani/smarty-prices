@@ -32,6 +32,8 @@ const H   = { apikey: KEY, Authorization: "Bearer " + KEY };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const fmt = n => (n == null) ? "-" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const fmtT = t => t ? new Date(t).toLocaleString("sv-SE").replace("T", " ").slice(0, 16) : "-";
+// توحيد الرمز: إزالة المسافات وتحويل كل أنواع الشرطات (‐‑‒–—―−) إلى شرطة عادية
+const norm = s => s.trim().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, "");
 
 async function api(path) {
   const r = await fetch(SB + "/rest/v1/" + path, { headers: H });
@@ -55,10 +57,10 @@ async function main() {
   const rateTime = fmtT(map.usd_rate?.updated_at);
   const body = document.getElementById("body");
 
-  const code = (p.get("c") || "").trim();
+  const code = norm(p.get("c") || "");
   if (code) {
     try {
-      const rows = await api("qr_prices?code=eq." + encodeURIComponent(code) + "&select=code,name,usd_price,updated_at");
+      const rows = await api("qr_prices?code=ilike." + encodeURIComponent(code) + "&select=code,name,usd_price,updated_at");
       const it = rows[0];
       if (!it) {
         body.className = "";
