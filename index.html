@@ -9,7 +9,7 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f6f8;margin:0;displa
 .card{background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:28px;max-width:420px;width:100%;text-align:center}
 .store{color:#666;font-size:15px;margin-bottom:4px}
 .name{font-size:22px;font-weight:700;margin:8px 0}
-.code{color:#999;font-size:13px;direction:ltr}
+.code{color:#999;font-size:13px}
 .price{font-size:44px;font-weight:800;color:#0a7d3b;margin:18px 0 2px}
 .unit{font-size:18px;color:#0a7d3b}
 .meta{margin-top:18px;font-size:13px;color:#888;border-top:1px solid #eee;padding-top:12px;line-height:2}
@@ -64,7 +64,7 @@ async function main() {
       const it = rows[0];
       if (!it) {
         body.className = "";
-        body.innerHTML = `<div class="err">المادة غير موجودة<br><span class="code">${esc(code)}</span></div>`;
+        body.innerHTML = `<div class="err">المادة غير موجودة<br><span class="code">رمز المادة: <span dir="ltr">${esc(code)}</span></span></div>`;
         return;
       }
       const priceHtml = rate
@@ -72,8 +72,8 @@ async function main() {
         : `<div class="err">سعر الصرف غير متوفر حالياً</div>`;
       body.className = "";
       body.innerHTML = `
-        <div class="name">${esc(it.name)}</div>
-        <div class="code">${esc(it.code)}</div>
+        <div class="name">اسم المادة: ${esc(it.name)}</div>
+        <div class="code">رمز المادة: <span dir="ltr">${esc(it.code)}</span></div>
         ${priceHtml}
         <div class="meta">السعر بالدولار: ${fmt(it.usd_price)} $<br>
         سعر الصرف: ${fmt(rate)} (${esc(rateSrc)})<br>
@@ -99,7 +99,7 @@ async function main() {
           const syp = rate ? `<b style="color:#0a7d3b">${fmt(it.usd_price * rate)} ل.س</b>` : "";
           html += `<div style="border-bottom:1px solid #eee;padding:8px 0">
             <a href="?c=${encodeURIComponent(it.code)}" style="text-decoration:none;color:#333">
-            <b>${esc(it.name)}</b> <span class="code">${esc(it.code)}</span></a><br>${syp}</div>`;
+            <b>${esc(it.name)}</b> <span class="code" dir="ltr">${esc(it.code)}</span></a><br>${syp}</div>`;
         }
         html += `</div>`;
       } else {
