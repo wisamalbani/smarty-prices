@@ -9,7 +9,7 @@
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f6f8;margin:0;display:flex;justify-content:center;padding:20px}
 .card{background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;width:100%;text-align:center}
 h1{font-size:22px;margin:0 0 14px}
-.row{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.row{display:flex;gap:8px;justify-content:center;margin:10px 0;flex-wrap:wrap}
 input,select{font-size:17px;padding:10px;border:1px solid #ccc;border-radius:10px}
 input{width:55%}
 button{font-size:17px;padding:10px 16px;border:0;border-radius:10px;background:#0a7d3b;color:#fff;cursor:pointer}
@@ -74,7 +74,6 @@ const KEY = "sb_publishable_fwT1tfYwEXlo-XrRqlr6Jg_CZXRboMd";
 const H   = { apikey: KEY, Authorization: "Bearer " + KEY };
 const BASE_URL = "https://wisamalbani.github.io/smarty-prices/";
 
-const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const norm = s => s.trim().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, "");
 
 const codeEl = document.getElementById("code");
@@ -104,6 +103,10 @@ function setMsg(text, cls) {
 
 function renderLabel() {
   if (!current) return;
+  if (!window.QRCode || !QRCode.toCanvas) {
+    setMsg("مكتبة QR غير محمّلة، تحقق من الإنترنت ثم حدّث الصفحة", "err");
+    return;
+  }
   const size = Number(sizeEl.value || 240);
   qrboxEl.innerHTML = "";
   const canvas = document.createElement("canvas");
@@ -135,21 +138,27 @@ async function make() {
     return;
   }
   setMsg("جارِ التحقق من الرمز…");
+  let it;
   try {
     const rows = await api("qr_prices?code=ilike." + encodeURIComponent(code) + "&select=code,name,usd_price&limit=1");
-    const it = rows[0];
-    if (!it) {
-      setMsg("رمز المادة غير موجود في سوبابيز", "err");
-      return;
-    }
-    current = {
-      code: it.code,
-      name: it.name,
-      url: BASE_URL + "?c=" + encodeURIComponent(it.code)
-    };
-    renderLabel();
+    it = rows[0];
   } catch (e) {
     setMsg("تعذر الاتصال بسوبابيز", "err");
+    return;
+  }
+  if (!it) {
+    setMsg("رمز المادة غير موجود في سوبابيز", "err");
+    return;
+  }
+  current = {
+    code: it.code,
+    name: it.name,
+    url: BASE_URL + "?c=" + encodeURIComponent(it.code)
+  };
+  try {
+    renderLabel();
+  } catch (e) {
+    setMsg("تعذر إنشاء QR", "err");
   }
 }
 
@@ -169,7 +178,14 @@ downloadBtn.addEventListener("click", () => {
 });
 
 printBtn.addEventListener("click", () => window.print());
-codeEl.focus();
+
+const autoCode = norm(new URLSearchParams(location.search).get("c") || "");
+if (autoCode) {
+  codeEl.value = autoCode;
+  make();
+} else {
+  codeEl.focus();
+}
 </script>
 </body>
 </html>
