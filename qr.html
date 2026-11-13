@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تصميم QR - سمارتي</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f6f8;margin:0;display:flex;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;width:100%;text-align:center}
+h1{font-size:22px;margin:0 0 14px}
+.row{display:flex;gap:8px;justify-content:center;margin:10px 0}
+input,select{font-size:17px;padding:10px;border:1px solid #ccc;border-radius:10px}
+input{width:55%}
+button{font-size:17px;padding:10px 16px;border:0;border-radius:10px;background:#0a7d3b;color:#fff;cursor:pointer}
+button.secondary{background:#555}
+.msg{min-height:26px;margin:10px 0;font-size:16px}
+.err{color:#c0392b}.ok{color:#0a7d3b}
+.label{margin:14px auto 0;padding:12px;border:1px dashed #aaa;border-radius:12px;display:inline-block;background:#fff}
+#qrbox{display:flex;justify-content:center;margin:8px 0}
+.item-name{font-size:18px;font-weight:700;margin-top:8px}
+.item-code{font-size:14px;color:#666;direction:ltr}
+.actions{margin-top:14px;display:flex;gap:8px;justify-content:center}
+.small{font-size:13px;color:#888;margin-top:12px}
+@media print{
+  body{background:#fff;padding:0}
+  .controls,.actions,.small,.msg{display:none!important}
+  .card{box-shadow:none;max-width:none;padding:0}
+  .label{border:1px solid #000;border-radius:0;margin:0}
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>تصميم QR لمادة</h1>
+
+  <div class="controls">
+    <div class="row">
+      <input id="code" placeholder="أدخل رمز المادة" autocomplete="off">
+      <button id="make">إنشاء</button>
+    </div>
+    <div class="row">
+      <label>الحجم
+        <select id="size">
+          <option value="180">صغير</option>
+          <option value="240" selected>وسط</option>
+          <option value="320">كبير</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="showname" checked> اسم المادة</label>
+      <label><input type="checkbox" id="showcode" checked> الرمز</label>
+    </div>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div id="label" class="label" style="display:none">
+    <div id="qrbox"></div>
+    <div id="iname" class="item-name"></div>
+    <div id="icode" class="item-code"></div>
+  </div>
+
+  <div class="actions">
+    <button id="download" class="secondary" disabled>تنزيل PNG</button>
+    <button id="print" disabled>طباعة</button>
+  </div>
+
+  <div class="small">الـ QR يحتوي رابط السعر فقط، بدون تخزين السعر داخل الكود.</div>
+</div>
+
+<script>
+const SB  = "https://lzzhrnwhfydfrnktvaei.supabase.co";
+const KEY = "sb_publishable_fwT1tfYwEXlo-XrRqlr6Jg_CZXRboMd";
+const H   = { apikey: KEY, Authorization: "Bearer " + KEY };
+const BASE_URL = "https://wisamalbani.github.io/smarty-prices/";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const norm = s => s.trim().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, "");
+
+const codeEl = document.getElementById("code");
+const sizeEl = document.getElementById("size");
+const showNameEl = document.getElementById("showname");
+const showCodeEl = document.getElementById("showcode");
+const msgEl = document.getElementById("msg");
+const labelEl = document.getElementById("label");
+const qrboxEl = document.getElementById("qrbox");
+const inameEl = document.getElementById("iname");
+const icodeEl = document.getElementById("icode");
+const downloadBtn = document.getElementById("download");
+const printBtn = document.getElementById("print");
+
+let current = null;
+
+async function api(path) {
+  const r = await fetch(SB + "/rest/v1/" + path, { headers: H });
+  if (!r.ok) throw new Error("api " + r.status);
+  return r.json();
+}
+
+function setMsg(text, cls) {
+  msgEl.textContent = text || "";
+  msgEl.className = "msg " + (cls || "");
+}
+
+function renderLabel() {
+  if (!current) return;
+  const size = Number(sizeEl.value || 240);
+  qrboxEl.innerHTML = "";
+  const canvas = document.createElement("canvas");
+  qrboxEl.appendChild(canvas);
+  QRCode.toCanvas(canvas, current.url, { width: size, margin: 1 }, (err) => {
+    if (err) {
+      setMsg("تعذر إنشاء QR", "err");
+      return;
+    }
+    inameEl.textContent = showNameEl.checked ? current.name : "";
+    icodeEl.textContent = showCodeEl.checked ? current.code : "";
+    inameEl.style.display = showNameEl.checked ? "block" : "none";
+    icodeEl.style.display = showCodeEl.checked ? "block" : "none";
+    labelEl.style.display = "inline-block";
+    downloadBtn.disabled = false;
+    printBtn.disabled = false;
+    setMsg("المادة موجودة، تم إنشاء الـ QR", "ok");
+  });
+}
+
+async function make() {
+  const code = norm(codeEl.value || "");
+  current = null;
+  labelEl.style.display = "none";
+  downloadBtn.disabled = true;
+  printBtn.disabled = true;
+  if (!code) {
+    setMsg("أدخل رمز المادة أولاً", "err");
+    return;
+  }
+  setMsg("جارِ التحقق من الرمز…");
+  try {
+    const rows = await api("qr_prices?code=ilike." + encodeURIComponent(code) + "&select=code,name,usd_price&limit=1");
+    const it = rows[0];
+    if (!it) {
+      setMsg("رمز المادة غير موجود في سوبابيز", "err");
+      return;
+    }
+    current = {
+      code: it.code,
+      name: it.name,
+      url: BASE_URL + "?c=" + encodeURIComponent(it.code)
+    };
+    renderLabel();
+  } catch (e) {
+    setMsg("تعذر الاتصال بسوبابيز", "err");
+  }
+}
+
+document.getElementById("make").addEventListener("click", make);
+codeEl.addEventListener("keydown", (e) => { if (e.key === "Enter") make(); });
+sizeEl.addEventListener("change", renderLabel);
+showNameEl.addEventListener("change", renderLabel);
+showCodeEl.addEventListener("change", renderLabel);
+
+downloadBtn.addEventListener("click", () => {
+  const canvas = qrboxEl.querySelector("canvas");
+  if (!canvas || !current) return;
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = "qr-" + current.code.replace(/[\\/:*?"<>|]+/g, "_") + ".png";
+  a.click();
+});
+
+printBtn.addEventListener("click", () => window.print());
+codeEl.focus();
+</script>
+</body>
+</html>
