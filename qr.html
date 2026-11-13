@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>تصميم QR - سمارتي</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f6f8;margin:0;display:flex;justify-content:center;padding:20px}
 .card{background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:24px;max-width:520px;width:100%;text-align:center}
@@ -103,28 +103,26 @@ function setMsg(text, cls) {
 
 function renderLabel() {
   if (!current) return;
-  if (!window.QRCode || !QRCode.toCanvas) {
+  if (!window.QRCode) {
     setMsg("مكتبة QR غير محمّلة، تحقق من الإنترنت ثم حدّث الصفحة", "err");
     return;
   }
   const size = Number(sizeEl.value || 240);
   qrboxEl.innerHTML = "";
-  const canvas = document.createElement("canvas");
-  qrboxEl.appendChild(canvas);
-  QRCode.toCanvas(canvas, current.url, { width: size, margin: 1 }, (err) => {
-    if (err) {
-      setMsg("تعذر إنشاء QR", "err");
-      return;
-    }
-    inameEl.textContent = showNameEl.checked ? current.name : "";
-    icodeEl.textContent = showCodeEl.checked ? current.code : "";
-    inameEl.style.display = showNameEl.checked ? "block" : "none";
-    icodeEl.style.display = showCodeEl.checked ? "block" : "none";
-    labelEl.style.display = "inline-block";
-    downloadBtn.disabled = false;
-    printBtn.disabled = false;
-    setMsg("المادة موجودة، تم إنشاء الـ QR", "ok");
+  new QRCode(qrboxEl, {
+    text: current.url,
+    width: size,
+    height: size,
+    correctLevel: QRCode.CorrectLevel.M
   });
+  inameEl.textContent = showNameEl.checked ? current.name : "";
+  icodeEl.textContent = showCodeEl.checked ? current.code : "";
+  inameEl.style.display = showNameEl.checked ? "block" : "none";
+  icodeEl.style.display = showCodeEl.checked ? "block" : "none";
+  labelEl.style.display = "inline-block";
+  downloadBtn.disabled = false;
+  printBtn.disabled = false;
+  setMsg("المادة موجودة، تم إنشاء الـ QR", "ok");
 }
 
 async function make() {
@@ -169,10 +167,17 @@ showNameEl.addEventListener("change", renderLabel);
 showCodeEl.addEventListener("change", renderLabel);
 
 downloadBtn.addEventListener("click", () => {
+  if (!current) return;
   const canvas = qrboxEl.querySelector("canvas");
-  if (!canvas || !current) return;
+  const img = qrboxEl.querySelector("img");
   const a = document.createElement("a");
-  a.href = canvas.toDataURL("image/png");
+  if (canvas) {
+    a.href = canvas.toDataURL("image/png");
+  } else if (img) {
+    a.href = img.src;
+  } else {
+    return;
+  }
   a.download = "qr-" + current.code.replace(/[\\/:*?"<>|]+/g, "_") + ".png";
   a.click();
 });
