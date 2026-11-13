@@ -31,6 +31,7 @@ const H   = { apikey: KEY, Authorization: "Bearer " + KEY };
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const fmt = n => (n == null) ? "-" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+const round10 = n => (n == null) ? null : Math.round(Number(n) / 10) * 10;
 const fmtT = t => t ? new Date(t).toLocaleString("sv-SE").replace("T", " ").slice(0, 16) : "-";
 // توحيد الرمز: إزالة المسافات وتحويل كل أنواع الشرطات (‐‑‒–—―−) إلى شرطة عادية
 const norm = s => s.trim().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, "");
@@ -68,7 +69,7 @@ async function main() {
         return;
       }
       const priceHtml = rate
-        ? `<div class="price">${fmt(it.usd_price * rate)} <span class="unit">ل.س</span></div>`
+        ? `<div class="price">${fmt(round10(it.usd_price * rate))} <span class="unit">ل.س</span></div>`
         : `<div class="err">سعر الصرف غير متوفر حالياً</div>`;
       body.className = "";
       body.innerHTML = `
@@ -96,7 +97,7 @@ async function main() {
       if (rows.length) {
         html += `<div style="text-align:right;margin-top:16px">`;
         for (const it of rows) {
-          const syp = rate ? `<b style="color:#0a7d3b">${fmt(it.usd_price * rate)} ل.س</b>` : "";
+          const syp = rate ? `<b style="color:#0a7d3b">${fmt(round10(it.usd_price * rate))} ل.س</b>` : "";
           html += `<div style="border-bottom:1px solid #eee;padding:8px 0">
             <a href="?c=${encodeURIComponent(it.code)}" style="text-decoration:none;color:#333">
             <b>${esc(it.name)}</b> <span class="code" dir="ltr">${esc(it.code)}</span></a><br>${syp}</div>`;
